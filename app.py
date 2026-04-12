@@ -1,12 +1,109 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from datetime import datetime
 
-st.set_page_config(page_title="TF家族四代练习生寻艺数据看板", layout="wide")
-st.title("📈 TF家族四代练习生寻艺数据看板")
-st.caption("数据每日自动更新 | 基于寻艺小程序官方数据接口")
+st.set_page_config(page_title="TF家族四代练习生寻艺数据看板", layout="wide", page_icon="📊")
 
-@st.cache_data(ttl=1800)   # 30分钟缓存，配合自动更新
+# 自定义 CSS：手机纵向卡片样式
+st.markdown("""
+<style>
+    /* 全局适配手机 */
+    .main .block-container {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
+        max-width: 100%;
+    }
+    /* 卡片纵向排列 */
+    .vertical-card {
+        background-color: #ffffff;
+        border-radius: 20px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+        transition: 0.2s;
+    }
+    .card-header {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #212529;
+    }
+    .big-number {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin: 0.2rem 0;
+        color: #1f77b4;
+        display: inline-block;
+    }
+    .diff {
+        font-size: 0.9rem;
+        margin-left: 0.8rem;
+        font-weight: 500;
+    }
+    .diff-positive {
+        color: #28a745;
+    }
+    .diff-negative {
+        color: #dc3545;
+    }
+    .diff-zero {
+        color: #6c757d;
+    }
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #495057;
+        border-top: 1px solid #e9ecef;
+        padding-top: 0.5rem;
+    }
+    .info-item {
+        text-align: center;
+        flex: 1;
+    }
+    .info-label {
+        font-size: 0.7rem;
+        color: #6c757d;
+    }
+    .info-value {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .percent-bar {
+        background-color: #e9ecef;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 6px 0;
+    }
+    .bar1 { background-color: #1f77b4; height: 6px; }
+    .bar2 { background-color: #ff7f0e; height: 6px; }
+    .bar3 { background-color: #2ca02c; height: 6px; }
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        margin-top: 4px;
+        color: #495057;
+    }
+    hr {
+        margin: 0.6rem 0;
+    }
+    .timestamp {
+        font-size: 0.65rem;
+        color: #adb5bd;
+        text-align: right;
+        margin-top: 0.5rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📈 寻艺数据")
+st.caption(f"最后更新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# 读取数据
+@st.cache_data(ttl=1800)
 def load_data():
     df = pd.read_csv("xunyi_likes_summary.csv")
     df['时间'] = pd.to_datetime(df['时间'])
@@ -15,16 +112,18 @@ def load_data():
 try:
     df = load_data()
 except FileNotFoundError:
-    st.error("未找到数据文件，请先运行数据采集脚本生成 xunyi_likes_summary.csv")
+    st.error("未找到数据文件，请先运行采集脚本生成 xunyi_likes_summary.csv")
     st.stop()
 
+# 侧边栏筛选（手机端可点击展开）
 st.sidebar.header("🔍 筛选练习生")
-all_artists = df['练习生'].unique().tolist()
-selected_artists = st.sidebar.multiselect("选择你想查看的练习生", all_artists, default=all_artists)
+all_artists = sorted(df['练习生'].unique().tolist())
+selected_artists = st.sidebar.multiselect("选择练习生", all_artists, default=all_artists)
+
 filtered_df = df[df['练习生'].isin(selected_artists)]
 
-# 获取每个练习生的最新数据和上一次数据（用于计算增量）
-latest_list = []
+# 获取每个练习生的最新数据和上一次数据（用于较上次变化）
+latest_with_diff = []
 for artist in selected_artists:
     artist_df = filtered_df[filtered_df['练习生'] == artist].sort_values('时间')
     if len(artist_df) >= 2:
@@ -36,39 +135,54 @@ for artist in selected_artists:
         diff = 0
     else:
         continue
-    latest_list.append((latest, diff))
+    latest_with_diff.append((latest, diff))
 
-# 卡片式布局
-st.subheader("📊 练习生数据卡片（最新）")
-cols = st.columns(3)
-for idx, (row, diff) in enumerate(latest_list):
-    with cols[idx % 3]:
-        # 计算累计参与人数
-        total_participants = row['点赞1次人数'] + row['点赞2次人数'] + row['点赞3次人数']
-        diff_color = "green" if diff > 0 else "gray"
-        diff_sign = "+" if diff > 0 else ""
-        st.markdown(f"""
-        <div style="background-color: #f0f2f6; padding: 1rem; border-radius: 1rem; margin-bottom: 1rem;">
-            <h3 style="margin: 0;">{row['练习生']}</h3>
-            <p style="font-size: 2rem; font-weight: bold; margin: 0;">{row['总点赞量']:,}</p>
-            <p style="color: {diff_color};">较上次 {diff_sign}{diff}</p>
-            <p>👍 总点赞量</p>
-            <hr>
-            <p>👥 粉丝数：{row['粉丝数']:,}</p>
-            <p>⭐ 累计参与人数：{total_participants:,}</p>
-            <p style="font-size: 0.8rem; color: gray;">（至少点赞1次的历史总人数）</p>
+# 按总点赞量从高到低排序
+latest_with_diff.sort(key=lambda x: x[0]['总点赞量'], reverse=True)
+
+# 纵向渲染卡片
+for row, diff in latest_with_diff:
+    today_participants = row['点赞1次人数'] + row['点赞2次人数'] + row['点赞3次人数']
+    p1 = row['点赞1次人数'] / today_participants * 100 if today_participants > 0 else 0
+    p2 = row['点赞2次人数'] / today_participants * 100 if today_participants > 0 else 0
+    p3 = row['点赞3次人数'] / today_participants * 100 if today_participants > 0 else 0
+
+    # 较上次样式
+    if diff > 0:
+        diff_html = f'<span class="diff diff-positive">▲ +{diff}</span>'
+    elif diff < 0:
+        diff_html = f'<span class="diff diff-negative">▼ {diff}</span>'
+    else:
+        diff_html = '<span class="diff diff-zero">→ 0</span>'
+
+    st.markdown(f"""
+    <div class="vertical-card">
+        <div class="card-header">{row['练习生']}</div>
+        <div>
+            <span class="big-number">{row['总点赞量']:,}</span>
+            {diff_html}
         </div>
-        """, unsafe_allow_html=True)
+        <div class="info-row">
+            <div class="info-item">
+                <div class="info-label">粉丝总数</div>
+                <div class="info-value">{row['粉丝数']:,}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">今日参与人数</div>
+                <div class="info-value">{today_participants:,}</div>
+            </div>
+        </div>
+        <hr>
+        <div style="font-weight:500; font-size:0.8rem;">点赞次数分布</div>
+        <div class="percent-bar"><div class="bar1" style="width:{p1:.1f}%;"></div></div>
+        <div class="stat-row"><span>🔹 1次：{row['点赞1次人数']:,} ({p1:.1f}%)</span></div>
+        <div class="percent-bar"><div class="bar2" style="width:{p2:.1f}%;"></div></div>
+        <div class="stat-row"><span>🔸 2次：{row['点赞2次人数']:,} ({p2:.1f}%)</span></div>
+        <div class="percent-bar"><div class="bar3" style="width:{p3:.1f}%;"></div></div>
+        <div class="stat-row"><span>🔹 3次：{row['点赞3次人数']:,} ({p3:.1f}%)</span></div>
+        <div class="timestamp">数据时间：{row['时间'].strftime('%Y-%m-%d %H:%M')}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# 趋势图
-st.subheader("📈 总点赞量趋势")
-fig_total = px.line(filtered_df, x='时间', y='总点赞量', color='练习生',
-                    title='各练习生寻艺总点赞量变化趋势', markers=True,
-                    labels={'总点赞量': '点赞量', '时间': '日期'})
-st.plotly_chart(fig_total, use_container_width=True)
-
-# 数据表格（增加累计参与人数列）
-st.subheader("📋 详细数据表")
-table_df = filtered_df.copy()
-table_df['累计参与人数'] = table_df['点赞1次人数'] + table_df['点赞2次人数'] + table_df['点赞3次人数']
-st.dataframe(table_df.sort_values('时间', ascending=False), use_container_width=True)
+st.markdown("---")
+st.caption("注：今日参与人数 = 至少点赞1次的历史总人数（check1+check2+check3），实际为累计值。点赞次数分布展示不同深度点赞人数的占比。")
