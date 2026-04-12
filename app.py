@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from textwrap import dedent
 
 st.set_page_config(
     page_title="TF家族四代练习生寻艺数据看板",
@@ -8,121 +7,15 @@ st.set_page_config(
     page_icon="📊"
 )
 
-st.markdown("""
-<style>
-    .main .block-container {
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
-        max-width: 100%;
-    }
-
-    .vertical-card {
-        background-color: #ffffff;
-        border-radius: 20px;
-        padding: 1rem 1.2rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
-        transition: 0.2s;
-    }
-
-    .card-header {
-        font-size: 1.3rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: #212529;
-    }
-
-    .big-number {
-        font-size: 2.2rem;
-        font-weight: 700;
-        margin: 0.2rem 0;
-        color: #1f77b4;
-        display: inline-block;
-    }
-
-    .diff {
-        font-size: 0.9rem;
-        margin-left: 0.8rem;
-        font-weight: 500;
-    }
-
-    .diff-positive {
-        color: #28a745;
-    }
-
-    .diff-negative {
-        color: #dc3545;
-    }
-
-    .diff-zero {
-        color: #6c757d;
-    }
-
-    .info-row {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.5rem;
-        font-size: 0.85rem;
-        color: #495057;
-        border-top: 1px solid #e9ecef;
-        padding-top: 0.5rem;
-    }
-
-    .info-item {
-        text-align: center;
-        flex: 1;
-    }
-
-    .info-label {
-        font-size: 0.7rem;
-        color: #6c757d;
-    }
-
-    .info-value {
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-
-    .percent-bar {
-        background-color: #e9ecef;
-        border-radius: 10px;
-        overflow: hidden;
-        margin: 6px 0;
-    }
-
-    .bar1 { background-color: #1f77b4; height: 6px; }
-    .bar2 { background-color: #ff7f0e; height: 6px; }
-    .bar3 { background-color: #2ca02c; height: 6px; }
-
-    .stat-row {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.75rem;
-        margin-top: 4px;
-        color: #495057;
-    }
-
-    hr {
-        margin: 0.6rem 0;
-    }
-
-    .timestamp {
-        font-size: 0.65rem;
-        color: #adb5bd;
-        text-align: right;
-        margin-top: 0.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("📈 寻艺数据")
+
 
 @st.cache_data(ttl=60)
 def load_data():
     df = pd.read_csv("xunyi_likes_summary.csv")
     df["时间"] = pd.to_datetime(df["时间"])
     return df
+
 
 if st.button("🔄 立即刷新数据"):
     load_data.clear()
@@ -169,66 +62,42 @@ if not latest_with_diff:
 for row, diff in latest_with_diff:
     today_participants = row["点赞1次人数"] + row["点赞2次人数"] + row["点赞3次人数"]
 
-    p1 = row["点赞1次人数"] / today_participants * 100 if today_participants > 0 else 0
-    p2 = row["点赞2次人数"] / today_participants * 100 if today_participants > 0 else 0
-    p3 = row["点赞3次人数"] / today_participants * 100 if today_participants > 0 else 0
+    p1 = row["点赞1次人数"] / today_participants if today_participants > 0 else 0
+    p2 = row["点赞2次人数"] / today_participants if today_participants > 0 else 0
+    p3 = row["点赞3次人数"] / today_participants if today_participants > 0 else 0
 
-    if diff > 0:
-        diff_html = f'<span class="diff diff-positive">▲ +{diff:,}</span>'
-    elif diff < 0:
-        diff_html = f'<span class="diff diff-negative">▼ {diff:,}</span>'
-    else:
-        diff_html = '<span class="diff diff-zero">→ 0</span>'
+    with st.container(border=True):
+        st.subheader(row["练习生"])
 
-    card_html = dedent(f"""
-        <div class="vertical-card">
-            <div class="card-header">{row['练习生']}</div>
-            <div>
-                <span class="big-number">{row['总点赞量']:,}</span>
-                {diff_html}
-            </div>
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            st.metric(
+                label="总点赞量",
+                value=f"{int(row['总点赞量']):,}",
+                delta=f"{int(diff):,}"
+            )
+        with col2:
+            st.metric(
+                label="粉丝总数",
+                value=f"{int(row['粉丝数']):,}"
+            )
 
-            <div class="info-row">
-                <div class="info-item">
-                    <div class="info-label">粉丝总数</div>
-                    <div class="info-value">{row['粉丝数']:,}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">今日参与人数</div>
-                    <div class="info-value">{today_participants:,}</div>
-                </div>
-            </div>
+        st.metric(
+            label="今日参与人数",
+            value=f"{int(today_participants):,}"
+        )
 
-            <hr>
+        st.write("**点赞次数分布**")
+        st.write(f"1次：{int(row['点赞1次人数']):,}（{p1 * 100:.1f}%）")
+        st.progress(float(p1))
 
-            <div style="font-weight:500; font-size:0.8rem;">点赞次数分布</div>
+        st.write(f"2次：{int(row['点赞2次人数']):,}（{p2 * 100:.1f}%）")
+        st.progress(float(p2))
 
-            <div class="percent-bar">
-                <div class="bar1" style="width:{p1:.1f}%;"></div>
-            </div>
-            <div class="stat-row">
-                <span>🔹 1次：{row['点赞1次人数']:,} ({p1:.1f}%)</span>
-            </div>
+        st.write(f"3次：{int(row['点赞3次人数']):,}（{p3 * 100:.1f}%）")
+        st.progress(float(p3))
 
-            <div class="percent-bar">
-                <div class="bar2" style="width:{p2:.1f}%;"></div>
-            </div>
-            <div class="stat-row">
-                <span>🔸 2次：{row['点赞2次人数']:,} ({p2:.1f}%)</span>
-            </div>
-
-            <div class="percent-bar">
-                <div class="bar3" style="width:{p3:.1f}%;"></div>
-            </div>
-            <div class="stat-row">
-                <span>🔹 3次：{row['点赞3次人数']:,} ({p3:.1f}%)</span>
-            </div>
-
-            <div class="timestamp">数据时间：{row['时间'].strftime('%Y-%m-%d %H:%M')}</div>
-        </div>
-    """)
-
-    st.markdown(card_html, unsafe_allow_html=True)
+        st.caption(f"数据时间：{row['时间'].strftime('%Y-%m-%d %H:%M')}")
 
 st.markdown("---")
 st.caption("注：今日参与人数 = 至少点赞1次的历史总人数（check1+check2+check3），实际为累计值。点赞次数分布展示不同深度点赞人数的占比。")
