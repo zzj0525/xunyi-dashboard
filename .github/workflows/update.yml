@@ -2,7 +2,7 @@ name: Update Xunyi Data
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # 每30分钟
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
         run: pip install pandas requests
 
       - name: 运行数据采集
-        run: python update_data.py
+        run: python collect_data.py
 
       - name: 提交数据更新
         run: |
