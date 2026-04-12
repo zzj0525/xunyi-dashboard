@@ -1,4 +1,7 @@
 name: Update Xunyi Data
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: "*/30 * * * *"
@@ -31,8 +34,7 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          git restore .github/workflows/update_data.yml || true
-          git restore .github/workflows/update.yml || true
+          git reset
           git add xunyi_likes_summary.csv
           git diff --cached --quiet || git commit -m "auto update data"
           git push
