@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from textwrap import dedent
 
 st.set_page_config(
     page_title="TF家族四代练习生寻艺数据看板",
@@ -7,17 +8,14 @@ st.set_page_config(
     page_icon="📊"
 )
 
-# 自定义 CSS：手机纵向卡片样式
 st.markdown("""
 <style>
-    /* 全局适配手机 */
     .main .block-container {
         padding-left: 0.8rem;
         padding-right: 0.8rem;
         max-width: 100%;
     }
 
-    /* 卡片纵向排列 */
     .vertical-card {
         background-color: #ffffff;
         border-radius: 20px;
@@ -126,7 +124,6 @@ def load_data():
     df["时间"] = pd.to_datetime(df["时间"])
     return df
 
-# 手动刷新按钮
 if st.button("🔄 立即刷新数据"):
     load_data.clear()
     st.rerun()
@@ -140,18 +137,15 @@ except Exception as e:
     st.error(f"读取数据失败：{e}")
     st.stop()
 
-# 显示真实数据最新时间，而不是页面运行时间
 latest_data_time = df["时间"].max()
 st.caption(f"数据最新时间：{latest_data_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-# 侧边栏筛选
 st.sidebar.header("🔍 筛选练习生")
 all_artists = sorted(df["练习生"].dropna().unique().tolist())
 selected_artists = st.sidebar.multiselect("选择练习生", all_artists, default=all_artists)
 
 filtered_df = df[df["练习生"].isin(selected_artists)]
 
-# 获取每个练习生的最新数据和上一次数据
 latest_with_diff = []
 for artist in selected_artists:
     artist_df = filtered_df[filtered_df["练习生"] == artist].sort_values("时间")
@@ -166,14 +160,12 @@ for artist in selected_artists:
         continue
     latest_with_diff.append((latest, diff))
 
-# 按总点赞量排序
 latest_with_diff.sort(key=lambda x: x[0]["总点赞量"], reverse=True)
 
 if not latest_with_diff:
     st.warning("当前没有可展示的练习生数据，请检查筛选条件。")
     st.stop()
 
-# 渲染卡片
 for row, diff in latest_with_diff:
     today_participants = row["点赞1次人数"] + row["点赞2次人数"] + row["点赞3次人数"]
 
@@ -188,53 +180,55 @@ for row, diff in latest_with_diff:
     else:
         diff_html = '<span class="diff diff-zero">→ 0</span>'
 
-    st.markdown(f"""
-<div class="vertical-card">
-    <div class="card-header">{row['练习生']}</div>
-    <div>
-        <span class="big-number">{row['总点赞量']:,}</span>
-        {diff_html}
-    </div>
+    card_html = dedent(f"""
+        <div class="vertical-card">
+            <div class="card-header">{row['练习生']}</div>
+            <div>
+                <span class="big-number">{row['总点赞量']:,}</span>
+                {diff_html}
+            </div>
 
-    <div class="info-row">
-        <div class="info-item">
-            <div class="info-label">粉丝总数</div>
-            <div class="info-value">{row['粉丝数']:,}</div>
+            <div class="info-row">
+                <div class="info-item">
+                    <div class="info-label">粉丝总数</div>
+                    <div class="info-value">{row['粉丝数']:,}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">今日参与人数</div>
+                    <div class="info-value">{today_participants:,}</div>
+                </div>
+            </div>
+
+            <hr>
+
+            <div style="font-weight:500; font-size:0.8rem;">点赞次数分布</div>
+
+            <div class="percent-bar">
+                <div class="bar1" style="width:{p1:.1f}%;"></div>
+            </div>
+            <div class="stat-row">
+                <span>🔹 1次：{row['点赞1次人数']:,} ({p1:.1f}%)</span>
+            </div>
+
+            <div class="percent-bar">
+                <div class="bar2" style="width:{p2:.1f}%;"></div>
+            </div>
+            <div class="stat-row">
+                <span>🔸 2次：{row['点赞2次人数']:,} ({p2:.1f}%)</span>
+            </div>
+
+            <div class="percent-bar">
+                <div class="bar3" style="width:{p3:.1f}%;"></div>
+            </div>
+            <div class="stat-row">
+                <span>🔹 3次：{row['点赞3次人数']:,} ({p3:.1f}%)</span>
+            </div>
+
+            <div class="timestamp">数据时间：{row['时间'].strftime('%Y-%m-%d %H:%M')}</div>
         </div>
-        <div class="info-item">
-            <div class="info-label">今日参与人数</div>
-            <div class="info-value">{today_participants:,}</div>
-        </div>
-    </div>
+    """)
 
-    <hr>
-
-    <div style="font-weight:500; font-size:0.8rem;">点赞次数分布</div>
-
-    <div class="percent-bar">
-        <div class="bar1" style="width:{p1:.1f}%;"></div>
-    </div>
-    <div class="stat-row">
-        <span>🔹 1次：{row['点赞1次人数']:,} ({p1:.1f}%)</span>
-    </div>
-
-    <div class="percent-bar">
-        <div class="bar2" style="width:{p2:.1f}%;"></div>
-    </div>
-    <div class="stat-row">
-        <span>🔸 2次：{row['点赞2次人数']:,} ({p2:.1f}%)</span>
-    </div>
-
-    <div class="percent-bar">
-        <div class="bar3" style="width:{p3:.1f}%;"></div>
-    </div>
-    <div class="stat-row">
-        <span>🔹 3次：{row['点赞3次人数']:,} ({p3:.1f}%)</span>
-    </div>
-
-    <div class="timestamp">数据时间：{row['时间'].strftime('%Y-%m-%d %H:%M')}</div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(card_html, unsafe_allow_html=True)
 
 st.markdown("---")
 st.caption("注：今日参与人数 = 至少点赞1次的历史总人数（check1+check2+check3），实际为累计值。点赞次数分布展示不同深度点赞人数的占比。")
